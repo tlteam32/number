@@ -57,6 +57,35 @@
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
 
+    <!-- Passcode Overlay / Login Lock -->
+    <div id="passcodeLockOverlay" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 sm:p-8 text-center space-y-5 border border-slate-100 animate-fade-in">
+            <div class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 mx-auto flex items-center justify-center text-2xl shadow-inner">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">เข้าสู่ระบบเข้าใช้งาน</h2>
+                <p class="text-xs text-slate-500 mt-1">กรุณากรอกรหัสผ่าน 4 หลักเพื่อปลดล็อกเข้าใช้งานระบบ</p>
+            </div>
+
+            <!-- PIN Input Container -->
+            <div class="space-y-3">
+                <div class="relative">
+                    <input type="password" id="pinInput" maxlength="6" placeholder="• • • •" autocomplete="off"
+                        onkeyup="if(event.key === 'Enter') verifyPasscode()"
+                        class="w-full text-center text-2xl font-bold tracking-[0.5em] py-3.5 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-600 outline-none transition">
+                </div>
+                <p id="pinErrorMsg" class="text-xs text-rose-500 hidden font-medium flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-circle-exclamation"></i> รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+                </p>
+            </div>
+
+            <button onclick="verifyPasscode()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-semibold text-sm shadow-lg shadow-indigo-600/30 transition active:scale-[0.98]">
+                <i class="fa-solid fa-key mr-1.5"></i> ยืนยันรหัสผ่าน
+            </button>
+        </div>
+    </div>
+
     <!-- Header & Navigation -->
     <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -91,6 +120,10 @@
                     <button onclick="confirmResetAll()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium rounded-lg shadow-sm transition flex items-center gap-2">
                         <i class="fa-solid fa-trash-can text-xs"></i>
                         <span>ล้างกระดาน</span>
+                    </button>
+                    <!-- Lock App Session Button -->
+                    <button onclick="lockApp()" title="ล็อคหน้าจอ" class="px-3 py-2 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 text-sm font-medium rounded-lg shadow-sm transition border border-slate-700">
+                        <i class="fa-solid fa-lock text-xs"></i>
                     </button>
                 </div>
             </div>
@@ -423,6 +456,10 @@ function doPost(e) {
     <script>
         // State Management
         let bookings = {};
+        // Required PIN Password
+        const REQUIRED_PIN = "4642";
+        let isUnlocked = false;
+
         // Default Google Apps Script Web App URL fixed permanently
         const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw8TbB3h5MFsliuFI6AAh2Y0Flpiw5PZsbCKKp-5gPzrtKtcXUSxYuTQNuqhi7_0BmAiA/exec';
         let webAppUrl = localStorage.getItem('number_app_url') || DEFAULT_WEB_APP_URL;
@@ -435,6 +472,15 @@ function doPost(e) {
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
+            // Check session lock status
+            if (sessionStorage.getItem('app_unlocked') === 'true') {
+                isUnlocked = true;
+                document.getElementById('passcodeLockOverlay').classList.add('hidden');
+            } else {
+                document.getElementById('passcodeLockOverlay').classList.remove('hidden');
+                setTimeout(() => document.getElementById('pinInput').focus(), 200);
+            }
+
             // Set URL into input field
             document.getElementById('webAppUrl').value = webAppUrl;
             updateConnectionStatus('saved', 'ตั้งค่า URL ถาวรเรียบร้อยแล้ว');
@@ -457,6 +503,33 @@ function doPost(e) {
                 syncWithGoogleSheet();
             }
         });
+
+        // Passcode Verification
+        function verifyPasscode() {
+            const input = document.getElementById('pinInput').value.trim();
+            const errorMsg = document.getElementById('pinErrorMsg');
+
+            if (input === REQUIRED_PIN) {
+                isUnlocked = true;
+                sessionStorage.setItem('app_unlocked', 'true');
+                errorMsg.classList.add('hidden');
+                document.getElementById('passcodeLockOverlay').classList.add('hidden');
+                document.getElementById('pinInput').value = '';
+                showToast('เข้าสู่ระบบสำเร็จ');
+            } else {
+                errorMsg.classList.remove('hidden');
+                document.getElementById('pinInput').value = '';
+                document.getElementById('pinInput').focus();
+            }
+        }
+
+        function lockApp() {
+            isUnlocked = false;
+            sessionStorage.removeItem('app_unlocked');
+            document.getElementById('passcodeLockOverlay').classList.remove('hidden');
+            setTimeout(() => document.getElementById('pinInput').focus(), 200);
+            showToast('ล็อคระบบเรียบร้อยแล้ว', 'info');
+        }
 
         function formatNumber(num) {
             return num < 10 ? `0${num}` : `${num}`;
@@ -650,6 +723,11 @@ function doPost(e) {
         }
 
         function openBookingModal(numStr) {
+            if (!isUnlocked) {
+                lockApp();
+                return;
+            }
+
             document.getElementById('selectedNumberHidden').value = numStr;
             document.getElementById('modalNumberBadge').innerText = numStr;
             
@@ -678,6 +756,11 @@ function doPost(e) {
         }
 
         function saveBooking() {
+            if (!isUnlocked) {
+                lockApp();
+                return;
+            }
+
             const numStr = document.getElementById('selectedNumberHidden').value;
             const name = document.getElementById('userNameInput').value.trim();
 
@@ -704,6 +787,11 @@ function doPost(e) {
         }
 
         function deleteBooking() {
+            if (!isUnlocked) {
+                lockApp();
+                return;
+            }
+
             const numStr = document.getElementById('selectedNumberHidden').value;
             delete bookings[numStr];
 
@@ -724,6 +812,11 @@ function doPost(e) {
         }
 
         function saveApiUrl() {
+            if (!isUnlocked) {
+                lockApp();
+                return;
+            }
+
             const url = document.getElementById('webAppUrl').value.trim();
             webAppUrl = url;
             localStorage.setItem('number_app_url', url);
@@ -840,6 +933,11 @@ function doPost(e) {
         }
 
         function exportData() {
+            if (!isUnlocked) {
+                lockApp();
+                return;
+            }
+
             let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
             csvContent += "หมายเลข,ชื่อผู้จอง,วันที่บันทึก\n";
 
@@ -864,6 +962,11 @@ function doPost(e) {
 
         // Clear Board Confirmation and Execution
         function confirmResetAll() {
+            if (!isUnlocked) {
+                lockApp();
+                return;
+            }
+
             showAlertModal(
                 'ยืนยันการล้างกระดาน?', 
                 'คุณแน่ใจหรือไม่ที่จะล้างข้อมูลการจองทั้งหมด (00-99) และล้างผลรางวัลทั้งหมดออก? ข้อมูลทั้งหมดจะถูกรีเซ็ตใหม่ทันทีทั้งในหน้าเว็บและบน Google Sheets',
