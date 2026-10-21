@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจองตัวเลข 00-99 (Google Sheets Sync)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Navigation -->
+    <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-indigo-500/20 rounded-xl border border-indigo-400/30">
+                        <i class="fa-solid me-0 fa-table-cells text-2xl text-indigo-400"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                            ระบบเลือกตัวเลข <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">00 - 99</span>
+                        </h1>
+                        <p class="text-xs text-slate-400">จัดการการเลือกตัวเลขและเชื่อมต่อ Google Sheets ได้อย่างเรียลไทม์</p>
+                    </div>
+                </div>
+
+                <!-- Action Controls Top -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="syncBtn" onclick="syncWithGoogleSheet()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg shadow-sm transition flex items-center gap-2">
+                        <i class="fa-solid fa-rotate text-xs"></i>
+                        <span>ดึงข้อมูลล่าสุด</span>
+                    </button>
+                    <button onclick="openScriptModal()" class="px-3.5 py-2 bg-indigo-600/80 hover:bg-indigo-600 text-white text-sm font-medium rounded-lg shadow-sm transition flex items-center gap-2 border border-indigo-400/30">
+                        <i class="fa-solid fa-code text-xs"></i>
+                        <span>วิธีเชื่อม Google Sheets</span>
+                    </button>
+                    <button onclick="exportData()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg shadow-sm transition flex items-center gap-2 border border-slate-700">
+                        <i class="fa-solid fa-file-export text-xs"></i>
+                        <span>ส่งออก CSV</span>
+                    </button>
+                    <!-- Quick Clear Board Button in Header -->
+                    <button onclick="confirmResetAll()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium rounded-lg shadow-sm transition flex items-center gap-2">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                        <span>ล้างกระดาน</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+        <!-- Google Sheet Config Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex-1">
+                    <label for="webAppUrl" class="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-link text-indigo-500"></i>
+                        Google Apps Script Web App URL
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="webAppUrl" placeholder="https://script.google.com/macros/s/.../exec" 
+                            class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                        <button onclick="saveApiUrl()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-lg shrink-0 transition">
+                            บันทึก URL
+                        </button>
+                    </div>
+                </div>
+                <div id="connectionStatus" class="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg bg-slate-100 text-slate-600 shrink-0 self-start md:self-auto">
+                    <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                    <span>ยังไม่ได้เชื่อมต่อ Google Sheets</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Award Announcement Section (New Feature) -->
+        <div class="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-2 border-amber-400/40 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-amber-900 text-base sm:text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-amber-500 text-xl"></i>
+                    ระบุผลรางวัล (รางวัลละ 500 บ. / เลขกลับ 100 บ.)
+                </h2>
+                <button onclick="clearWinningNumbers()" class="text-xs text-amber-700 hover:text-amber-900 font-medium underline flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-left"></i> ล้างผลรางวัล
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <!-- Winning Set 1 -->
+                <div class="bg-white p-3.5 rounded-xl border border-amber-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span class="font-semibold text-slate-700 text-sm shrink-0 flex items-center gap-1.5">
+                        <span class="w-6 h-6 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center font-bold text-xs">1</span>
+                        รางวัลชุดที่ 1:
+                    </span>
+                    <div class="flex items-center gap-2 flex-1">
+                        <input type="text" id="winNum1" maxlength="2" placeholder="00 - 99" oninput="checkWinningResults()" 
+                            class="w-24 px-3 py-1.5 text-center font-bold text-lg text-amber-900 bg-amber-50/50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none">
+                        <div class="text-xs text-slate-500">
+                            เลขกลับ: <span id="reverseNum1" class="font-bold text-slate-800 text-sm">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Winning Set 2 -->
+                <div class="bg-white p-3.5 rounded-xl border border-amber-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span class="font-semibold text-slate-700 text-sm shrink-0 flex items-center gap-1.5">
+                        <span class="w-6 h-6 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center font-bold text-xs">2</span>
+                        รางวัลชุดที่ 2:
+                    </span>
+                    <div class="flex items-center gap-2 flex-1">
+                        <input type="text" id="winNum2" maxlength="2" placeholder="00 - 99" oninput="checkWinningResults()" 
+                            class="w-24 px-3 py-1.5 text-center font-bold text-lg text-amber-900 bg-amber-50/50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none">
+                        <div class="text-xs text-slate-500">
+                            เลขกลับ: <span id="reverseNum2" class="font-bold text-slate-800 text-sm">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Winners Announcement Box -->
+            <div id="winnersDisplayBox" class="bg-white/80 backdrop-blur border border-amber-200/80 rounded-xl p-4 min-h-[60px]">
+                <p class="text-xs text-slate-400 italic text-center py-1">กรอกตัวเลขรางวัลด้านบนเพื่อตรวจผลผู้ได้รับรางวัล</p>
+            </div>
+        </div>
+
+        <!-- Search & Quick Stats Bar -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <!-- Search inputs -->
+            <div class="md:col-span-7 bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="searchInput" oninput="filterGrid()" placeholder="ค้นหาตัวเลข หรือ ชื่อผู้จอง..." 
+                        class="w-full pl-9 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <button onclick="clearSearch()" id="clearSearchBtn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <select id="statusFilter" onchange="filterGrid()" class="py-2 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all">ทั้งหมด (100 ตัวเลข)</option>
+                    <option value="booked">จองแล้ว</option>
+                    <option value="available">ว่างอยู่</option>
+                    <option value="winners">ผู้ถูกรางวัล</option>
+                </select>
+            </div>
+
+            <!-- Stats summary -->
+            <div class="md:col-span-5 grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-xs text-slate-500 font-medium">ทั้งหมด</p>
+                    <p class="text-lg sm:text-xl font-bold text-slate-800">100</p>
+                </div>
+                <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200/60 shadow-sm">
+                    <p class="text-xs text-emerald-600 font-medium">จองแล้ว</p>
+                    <p id="bookedCount" class="text-lg sm:text-xl font-bold text-emerald-700">0</p>
+                </div>
+                <div class="bg-indigo-50 p-3 rounded-2xl border border-indigo-200/60 shadow-sm">
+                    <p class="text-xs text-indigo-600 font-medium">คงเหลือ</p>
+                    <p id="availableCount" class="text-lg sm:text-xl font-bold text-indigo-700">100</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 10x10 Grid View -->
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-grid-2 text-indigo-600"></i>
+                    ตารางตัวเลข (00 - 99)
+                </h2>
+                <div class="flex flex-wrap items-center gap-3 text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3.5 h-3.5 bg-slate-50 border border-slate-300 rounded"></span>
+                        <span class="text-slate-600">ว่าง</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3.5 h-3.5 bg-indigo-500 rounded"></span>
+                        <span class="text-slate-600">จองแล้ว</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3.5 h-3.5 bg-gradient-to-r from-amber-400 to-yellow-500 rounded ring-1 ring-amber-400"></span>
+                        <span class="text-slate-600 font-semibold">รางวัลตรง (500฿)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3.5 h-3.5 bg-slate-700 text-sky-400 rounded ring-1 ring-sky-400"></span>
+                        <span class="text-slate-600 font-semibold">รางวัลเลขกลับ (100฿)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Responsive Grid -->
+            <div class="overflow-x-auto pb-2">
+                <div class="grid grid-cols-10 gap-1.5 sm:gap-2.5 min-w-[600px]" id="numberGrid">
+                    <!-- Numbers will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger Zone / Action Bar Footer -->
+        <div class="flex justify-between items-center text-xs text-slate-500 pt-2">
+            <span>* คลิกที่ตัวเลขเพื่อจอง หรือแก้ไขข้อมูลผู้จอง</span>
+            <button onclick="confirmResetAll()" class="text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1.5 hover:underline">
+                <i class="fa-solid fa-trash-can"></i>
+                <span>ล้างกระดาน (Reset Board)</span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-4 bg-slate-100 border-t border-slate-200 text-center text-xs text-slate-500">
+        <p>ระบบเลือกและจองตัวเลข 00-99 &copy; 2026 | พัฒนาด้วย HTML5, Tailwind CSS และ Google Apps Script</p>
+    </footer>
+
+    <!-- Booking / Edit Modal -->
+    <div id="bookingModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden transform transition-all">
+            <!-- Modal Header -->
+            <div class="bg-slate-900 px-6 py-4 text-white flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span id="modalNumberBadge" class="bg-amber-400 text-slate-900 font-bold px-3 py-1 rounded-lg text-lg">00</span>
+                    <h3 class="font-semibold text-lg">ระบุข้อมูลผู้จอง</h3>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Modal Form Body -->
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="selectedNumberHidden">
+                
+                <div>
+                    <label for="userNameInput" class="block text-xs font-semibold text-slate-700 mb-1">
+                        ชื่อผู้จอง / หมายเหตุ <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="userNameInput" placeholder="กรอกชื่อ-นามสกุล หรือ เบอร์โทร"
+                        class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                </div>
+
+                <div id="existingBookingInfo" class="hidden p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 space-y-1">
+                    <p class="font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-circle-info"></i> หมายเลขนี้มีการจองไว้แล้ว
+                    </p>
+                    <p id="bookingDetailText" class="text-slate-600"></p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2 pt-2">
+                    <button id="deleteBookingBtn" onclick="deleteBooking()" type="button" class="hidden px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-medium text-sm transition border border-rose-200 flex-1">
+                        <i class="fa-solid fa-trash-can mr-1"></i> ยกเลิกการจอง
+                    </button>
+                    <button onclick="saveBooking()" type="button" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition flex-1 shadow-sm">
+                        <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions & Apps Script Code Modal -->
+    <div id="scriptModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="bg-indigo-950 px-6 py-4 text-white flex justify-between items-center">
+                <h3 class="font-semibold text-lg flex items-center gap-2">
+                    <i class="fa-brands fa-google"></i>
+                    วิธีการเชื่อมต่อ Google Sheets
+                </h3>
+                <button onclick="closeScriptModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="p-6 overflow-y-auto space-y-4 text-sm text-slate-600">
+                <ol class="list-decimal pl-5 space-y-2">
+                    <li>สร้างสเปรดชีตใหม่ใน <strong>Google Sheets</strong></li>
+                    <li>ไปที่เมนู <strong>ส่วนขยาย (Extensions)</strong> &gt; <strong>Apps Script</strong></li>
+                    <li>ลบโค้ดเดิมออกทั้งหมด แล้วคัดลอกโค้ดด้านล่างนี้ไปวาง:</li>
+                </ol>
+
+                <div class="relative">
+                    <button onclick="copyCode()" class="absolute right-3 top-3 bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs font-mono transition">
+                        <i class="fa-regular fa-copy mr-1"></i> คัดลอกโค้ด
+                    </button>
+                    <pre class="bg-slate-900 text-emerald-400 p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-60 leading-relaxed" id="scriptCode">
+function doGet() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+  const result = [];
+  
+  // Skip header if exists
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] !== "") {
+      result.push({
+        number: String(data[i][0]),
+        name: String(data[i][1] || ''),
+        updatedAt: String(data[i][2] || '')
+      });
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const data = JSON.parse(e.postData.contents);
+    
+    if (data.action === 'saveAll') {
+      // Clear sheet and rewrite header + rows
+      sheet.clearContents();
+      sheet.appendRow(['Number', 'Name', 'UpdatedAt']);
+      
+      data.items.forEach(item => {
+        sheet.appendRow([item.number, item.name, item.updatedAt]);
+      });
+      
+      return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: 'error', message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+</pre>
+                </div>
+
+                <ol start="4" class="list-decimal pl-5 space-y-2">
+                    <li>กดปุ่ม <strong>ทำให้ใช้งานได้อย่างรวดเร็ว (Deploy)</strong> &gt; <strong>การทำให้ใช้งานได้ใหม่ (New deployment)</strong></li>
+                    <li>เลือกประเภทเป็น <strong>เว็บแอป (Web App)</strong></li>
+                    <li>ตั้งค่า <strong>ผู้ที่มีสิทธิ์เข้าถึง (Who has access):</strong> เป็น <strong>"ทุกคน" (Anyone)</strong></li>
+                    <li>กด <strong>ทำให้ใช้งานได้ (Deploy)</strong> แล้วคัดลอก <strong>Web App URL</strong> มาวางใส่ในช่องบนเว็บนี้ได้เลย!</li>
+                </ol>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end">
+                <button onclick="closeScriptModal()" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition">
+                    เข้าใจแล้ว
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-sm">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toastMessage">แจ้งเตือน</span>
+    </div>
+
+    <!-- Notification Dialog for Alerts -->
+    <div id="alertModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
+            <div id="alertIconContainer" class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 mx-auto flex items-center justify-center text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="alertTitle" class="text-lg font-bold text-slate-800">ยืนยันการทำรายการ</h3>
+            <p id="alertMessage" class="text-sm text-slate-600">คุณแน่ใจหรือไม่ที่จะดำเนินการนี้?</p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeAlertModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl flex-1 transition">
+                    ยกเลิก
+                </button>
+                <button id="alertConfirmBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium rounded-xl flex-1 transition">
+                    ตกลง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let bookings = {};
+        let webAppUrl = localStorage.getItem('number_app_url') || '';
+        let winningState = {
+            num1: '',
+            num2: '',
+            rev1: '',
+            rev2: ''
+        };
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            if (webAppUrl) {
+                document.getElementById('webAppUrl').value = webAppUrl;
+                updateConnectionStatus('saved', 'ตั้งค่า URL แล้ว');
+            }
+            
+            // Load local backup if available
+            const savedLocal = localStorage.getItem('number_app_data');
+            if (savedLocal) {
+                try {
+                    bookings = JSON.parse(savedLocal);
+                } catch(e) {
+                    bookings = {};
+                }
+            }
+
+            renderGrid();
+            updateStats();
+
+            if (webAppUrl) {
+                syncWithGoogleSheet();
+            }
+        });
+
+        function formatNumber(num) {
+            return num < 10 ? `0${num}` : `${num}`;
+        }
+
+        // Reverse a 2-digit number string
+        function getReverseNumber(numStr) {
+            if (!numStr || numStr.length !== 2) return '';
+            return numStr.charAt(1) + numStr.charAt(0);
+        }
+
+        // Calculate and process winning results
+        function checkWinningResults() {
+            let win1 = document.getElementById('winNum1').value.trim();
+            let win2 = document.getElementById('winNum2').value.trim();
+
+            // Format inputs to 2-digits if numbers entered
+            if (win1.length === 1 && !isNaN(win1)) win1 = '0' + win1;
+            if (win2.length === 1 && !isNaN(win2)) win2 = '0' + win2;
+
+            const rev1 = win1.length === 2 ? getReverseNumber(win1) : '';
+            const rev2 = win2.length === 2 ? getReverseNumber(win2) : '';
+
+            winningState = {
+                num1: win1.length === 2 ? win1 : '',
+                num2: win2.length === 2 ? win2 : '',
+                rev1: rev1,
+                rev2: rev2
+            };
+
+            document.getElementById('reverseNum1').innerText = rev1 || '--';
+            document.getElementById('reverseNum2').innerText = rev2 || '--';
+
+            renderWinnersDisplay();
+            renderGrid();
+        }
+
+        function clearWinningNumbers() {
+            document.getElementById('winNum1').value = '';
+            document.getElementById('winNum2').value = '';
+            checkWinningResults();
+            showToast('ล้างข้อมูลรางวัลเรียบร้อย', 'info');
+        }
+
+        function renderWinnersDisplay() {
+            const container = document.getElementById('winnersDisplayBox');
+            const winnersList = [];
+
+            const processPrize = (num, prizeName, amount, isReverse = false) => {
+                if (!num || num.length !== 2) return;
+                const booking = bookings[num];
+                const hasWinner = booking && booking.name.trim() !== '';
+
+                winnersList.push({
+                    num: num,
+                    prizeName: prizeName,
+                    amount: amount,
+                    isReverse: isReverse,
+                    winnerName: hasWinner ? booking.name : null
+                });
+            };
+
+            processPrize(winningState.num1, 'รางวัลชุดที่ 1 (ตรง)', 500, false);
+            processPrize(winningState.rev1, 'รางวัลชุดที่ 1 (กลับ)', 100, true);
+            processPrize(winningState.num2, 'รางวัลชุดที่ 2 (ตรง)', 500, false);
+            processPrize(winningState.rev2, 'รางวัลชุดที่ 2 (กลับ)', 100, true);
+
+            if (winnersList.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-1">กรอกตัวเลขรางวัลด้านบนเพื่อตรวจผลผู้ได้รับรางวัล</p>`;
+                return;
+            }
+
+            let html = `<div class="space-y-2">`;
+            winnersList.forEach(item => {
+                if (item.winnerName) {
+                    html += `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl ${item.isReverse ? 'bg-sky-50 border border-sky-200' : 'bg-amber-100/80 border border-amber-300'}">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-bold ${item.isReverse ? 'bg-sky-600 text-white' : 'bg-amber-500 text-white'}">
+                                    เลข ${item.num}
+                                </span>
+                                <span class="text-xs sm:text-sm font-semibold text-slate-800">
+                                    <i class="fa-solid fa-user-check text-emerald-600 mr-1"></i>${escapeHtml(item.winnerName)}
+                                </span>
+                                <span class="text-xs text-slate-500">(${item.prizeName})</span>
+                            </div>
+                            <span class="text-xs sm:text-sm font-bold ${item.isReverse ? 'text-sky-700' : 'text-amber-800'}">
+                                ได้รับเงินรางวัล ${item.amount} บาท
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded font-bold bg-slate-200 text-slate-700">เลข ${item.num}</span>
+                                <span>(${item.prizeName})</span>
+                            </div>
+                            <span class="italic text-slate-400">ไม่มีผู้เลือกเลขนี้</span>
+                        </div>
+                    `;
+                }
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        // Render Grid with Award Highlights
+        function renderGrid() {
+            const grid = document.getElementById('numberGrid');
+            grid.innerHTML = '';
+
+            const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
+            const filterVal = document.getElementById('statusFilter').value;
+
+            for (let i = 0; i < 100; i++) {
+                const numStr = formatNumber(i);
+                const booking = bookings[numStr];
+                const isBooked = !!booking && booking.name.trim() !== '';
+
+                // Award Status
+                const isWinDirect = (numStr === winningState.num1) || (numStr === winningState.num2);
+                const isWinReverse = !isWinDirect && ((numStr === winningState.rev1) || (numStr === winningState.rev2));
+
+                // Filter logic
+                if (filterVal === 'booked' && !isBooked) continue;
+                if (filterVal === 'available' && isBooked) continue;
+                if (filterVal === 'winners' && !isWinDirect && !isWinReverse) continue;
+
+                if (searchVal !== '') {
+                    const matchNum = numStr.includes(searchVal);
+                    const matchName = isBooked && booking.name.toLowerCase().includes(searchVal);
+                    if (!matchNum && !matchName) continue;
+                }
+
+                // Visual Styling for Normal / Direct Win / Reverse Win
+                let bgStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 hover:shadow-md';
+                let badgeStyle = 'text-slate-400 font-normal';
+                let highlightTag = '';
+
+                if (isWinDirect) {
+                    bgStyle = 'bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-500 text-slate-950 border-amber-500 shadow-md ring-2 ring-amber-300 animate-pulse';
+                    badgeStyle = 'bg-slate-900 text-amber-300 font-bold';
+                    highlightTag = '<span class="absolute -top-1.5 -right-1.5 bg-slate-900 text-amber-300 text-[9px] px-1.5 py-0.2 rounded-full font-bold shadow"><i class="fa-solid fa-crown text-amber-400 mr-0.5"></i>500฿</span>';
+                } else if (isWinReverse) {
+                    bgStyle = 'bg-gradient-to-br from-slate-800 to-slate-900 text-white border-sky-400 shadow-md ring-2 ring-sky-400';
+                    badgeStyle = 'bg-sky-500 text-white font-bold';
+                    highlightTag = '<span class="absolute -top-1.5 -right-1.5 bg-sky-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold shadow"><i class="fa-solid fa-arrows-rotate mr-0.5"></i>100฿</span>';
+                } else if (isBooked) {
+                    bgStyle = 'bg-indigo-600 text-white border-indigo-700 shadow-sm hover:bg-indigo-700';
+                    badgeStyle = 'bg-white/20 text-white font-medium';
+                }
+
+                const cell = document.createElement('div');
+                cell.className = `relative p-2 rounded-xl transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[72px] sm:min-h-[80px] border ${bgStyle}`;
+                cell.onclick = () => openBookingModal(numStr);
+
+                cell.innerHTML = `
+                    ${highlightTag}
+                    <span class="text-base sm:text-lg font-bold tracking-tight">${numStr}</span>
+                    <span class="text-[10px] sm:text-xs truncate w-full text-center px-1 py-0.5 rounded ${badgeStyle}">
+                        ${isBooked ? escapeHtml(booking.name) : 'ว่าง'}
+                    </span>
+                `;
+
+                grid.appendChild(cell);
+            }
+        }
+
+        function updateStats() {
+            const bookedCount = Object.keys(bookings).filter(k => bookings[k] && bookings[k].name.trim() !== '').length;
+            document.getElementById('bookedCount').innerText = bookedCount;
+            document.getElementById('availableCount').innerText = 100 - bookedCount;
+        }
+
+        function filterGrid() {
+            const searchVal = document.getElementById('searchInput').value;
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (searchVal.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderGrid();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            renderGrid();
+        }
+
+        function openBookingModal(numStr) {
+            document.getElementById('selectedNumberHidden').value = numStr;
+            document.getElementById('modalNumberBadge').innerText = numStr;
+            
+            const booking = bookings[numStr];
+            const nameInput = document.getElementById('userNameInput');
+            const infoDiv = document.getElementById('existingBookingInfo');
+            const deleteBtn = document.getElementById('deleteBookingBtn');
+
+            if (booking && booking.name.trim() !== '') {
+                nameInput.value = booking.name;
+                infoDiv.classList.remove('hidden');
+                document.getElementById('bookingDetailText').innerText = `จองเมื่อ: ${booking.updatedAt || 'ไม่ระบุเวลา'}`;
+                deleteBtn.classList.remove('hidden');
+            } else {
+                nameInput.value = '';
+                infoDiv.classList.add('hidden');
+                deleteBtn.classList.add('hidden');
+            }
+
+            document.getElementById('bookingModal').classList.remove('hidden');
+            setTimeout(() => nameInput.focus(), 100);
+        }
+
+        function closeModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+
+        function saveBooking() {
+            const numStr = document.getElementById('selectedNumberHidden').value;
+            const name = document.getElementById('userNameInput').value.trim();
+
+            if (!name) {
+                showToast('กรุณาระบุชื่อผู้จอง', 'error');
+                return;
+            }
+
+            bookings[numStr] = {
+                name: name,
+                updatedAt: new Date().toLocaleString('th-TH')
+            };
+
+            saveToLocalStorage();
+            renderWinnersDisplay();
+            renderGrid();
+            updateStats();
+            closeModal();
+            showToast(`ลงทะเบียนหมายเลข ${numStr} สำเร็จ`);
+
+            if (webAppUrl) {
+                pushToGoogleSheet();
+            }
+        }
+
+        function deleteBooking() {
+            const numStr = document.getElementById('selectedNumberHidden').value;
+            delete bookings[numStr];
+
+            saveToLocalStorage();
+            renderWinnersDisplay();
+            renderGrid();
+            updateStats();
+            closeModal();
+            showToast(`ยกเลิกการจองหมายเลข ${numStr} แล้ว`, 'info');
+
+            if (webAppUrl) {
+                pushToGoogleSheet();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('number_app_data', JSON.stringify(bookings));
+        }
+
+        function saveApiUrl() {
+            const url = document.getElementById('webAppUrl').value.trim();
+            webAppUrl = url;
+            localStorage.setItem('number_app_url', url);
+            
+            if (url) {
+                showToast('บันทึก Web App URL เรียบร้อย');
+                syncWithGoogleSheet();
+            } else {
+                updateConnectionStatus('off', 'ยังไม่ได้เชื่อมต่อ Google Sheets');
+            }
+        }
+
+        function updateConnectionStatus(type, message) {
+            const container = document.getElementById('connectionStatus');
+            let colorDot = 'bg-slate-400';
+            let bgClass = 'bg-slate-100 text-slate-600';
+
+            if (type === 'connected') {
+                colorDot = 'bg-emerald-500 animate-pulse';
+                bgClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+            } else if (type === 'loading') {
+                colorDot = 'bg-amber-500 animate-ping';
+                bgClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+            } else if (type === 'error') {
+                colorDot = 'bg-rose-500';
+                bgClass = 'bg-rose-50 text-rose-700 border border-rose-200';
+            } else if (type === 'saved') {
+                colorDot = 'bg-indigo-500';
+                bgClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+            }
+
+            container.className = `flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg shrink-0 self-start md:self-auto transition ${bgClass}`;
+            container.innerHTML = `
+                <span class="w-2 h-2 rounded-full ${colorDot} inline-block"></span>
+                <span>${message}</span>
+            `;
+        }
+
+        async function syncWithGoogleSheet() {
+            if (!webAppUrl) {
+                showToast('กรุณาระบุ Web App URL ก่อนกดดึงข้อมูล', 'error');
+                return;
+            }
+
+            updateConnectionStatus('loading', 'กำลังดึงข้อมูล...');
+            const syncBtn = document.getElementById('syncBtn');
+            syncBtn.disabled = true;
+            syncBtn.classList.add('opacity-70');
+
+            try {
+                const response = await fetch(webAppUrl, { method: 'GET' });
+                const data = await response.json();
+
+                bookings = {};
+                if (Array.isArray(data)) {
+                    data.forEach(item => {
+                        if (item.number && item.name) {
+                            bookings[item.number] = {
+                                name: item.name,
+                                updatedAt: item.updatedAt || ''
+                            };
+                        }
+                    });
+                }
+
+                saveToLocalStorage();
+                renderWinnersDisplay();
+                renderGrid();
+                updateStats();
+                updateConnectionStatus('connected', 'เชื่อมต่อแล้ว (เรียบร้อย)');
+                showToast('ดึงข้อมูลล่าสุดจาก Google Sheets สำเร็จ');
+            } catch (err) {
+                console.error(err);
+                updateConnectionStatus('error', 'เชื่อมต่อล้มเหลว (ตรวจสอบ URL)');
+                showToast('ไม่สามารถดึงข้อมูลจาก Google Sheets ได้', 'error');
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.classList.remove('opacity-70');
+            }
+        }
+
+        async function pushToGoogleSheet() {
+            if (!webAppUrl) return;
+
+            updateConnectionStatus('loading', 'กำลังบันทึกลง Google Sheets...');
+
+            const payloadArray = [];
+            Object.keys(bookings).forEach(numStr => {
+                if (bookings[numStr] && bookings[numStr].name.trim() !== '') {
+                    payloadArray.push({
+                        number: numStr,
+                        name: bookings[numStr].name,
+                        updatedAt: bookings[numStr].updatedAt || new Date().toLocaleString('th-TH')
+                    });
+                }
+            });
+
+            try {
+                await fetch(webAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'saveAll',
+                        items: payloadArray
+                    })
+                });
+
+                updateConnectionStatus('connected', 'เชื่อมต่อแล้ว (บันทึกสำเร็จ)');
+            } catch (err) {
+                console.error(err);
+                updateConnectionStatus('error', 'บันทึกล้มเหลว');
+                showToast('บันทึกไปยัง Google Sheet ไม่สำเร็จ', 'error');
+            }
+        }
+
+        function exportData() {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "หมายเลข,ชื่อผู้จอง,วันที่บันทึก\n";
+
+            for (let i = 0; i < 100; i++) {
+                const numStr = formatNumber(i);
+                const booking = bookings[numStr];
+                const name = booking ? `"${booking.name.replace(/"/g, '""')}"` : "ว่าง";
+                const date = booking ? `"${booking.updatedAt}"` : "";
+                csvContent += `${numStr},${name},${date}\n`;
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `การจองตัวเลข_00-99_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('ส่งออกไฟล์ CSV สำเร็จ');
+        }
+
+        // Clear Board Confirmation and Execution
+        function confirmResetAll() {
+            showAlertModal(
+                'ยืนยันการล้างกระดาน?', 
+                'คุณแน่ใจหรือไม่ที่จะล้างข้อมูลการจองทั้งหมด (00-99) และล้างผลรางวัลทั้งหมดออก? ข้อมูลทั้งหมดจะถูกรีเซ็ตใหม่ทันทีทั้งในหน้าเว็บและบน Google Sheets',
+                () => {
+                    // 1. Clear all bookings data
+                    bookings = {};
+                    saveToLocalStorage();
+
+                    // 2. Clear winning number inputs and state
+                    document.getElementById('winNum1').value = '';
+                    document.getElementById('winNum2').value = '';
+                    winningState = {
+                        num1: '',
+                        num2: '',
+                        rev1: '',
+                        rev2: ''
+                    };
+                    document.getElementById('reverseNum1').innerText = '--';
+                    document.getElementById('reverseNum2').innerText = '--';
+
+                    // 3. Clear search and filter UI if any
+                    document.getElementById('searchInput').value = '';
+                    document.getElementById('clearSearchBtn').classList.add('hidden');
+                    document.getElementById('statusFilter').value = 'all';
+
+                    // 4. Update UI displays
+                    renderWinnersDisplay();
+                    renderGrid();
+                    updateStats();
+
+                    // 5. Sync empty state to Google Sheets
+                    if (webAppUrl) {
+                        pushToGoogleSheet();
+                    }
+                    showToast('ล้างกระดาน ข้อมูลผู้จอง และผลรางวัลทั้งหมดเรียบร้อยแล้ว', 'info');
+                }
+            );
+        }
+
+        function openScriptModal() {
+            document.getElementById('scriptModal').classList.remove('hidden');
+        }
+
+        function closeScriptModal() {
+            document.getElementById('scriptModal').classList.add('hidden');
+        }
+
+        function copyCode() {
+            const codeText = document.getElementById('scriptCode').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = codeText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast('คัดลอกโค้ดลง Clipboard แล้ว');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.innerText = msg;
+
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-xmark text-rose-400 text-base';
+            } else if (type === 'info') {
+                toastIcon.className = 'fa-solid fa-circle-info text-sky-400 text-base';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-base';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        let onConfirmCallback = null;
+        function showAlertModal(title, message, onConfirm) {
+            document.getElementById('alertTitle').innerText = title;
+            document.getElementById('alertMessage').innerText = message;
+            onConfirmCallback = onConfirm;
+
+            const btn = document.getElementById('alertConfirmBtn');
+            btn.onclick = () => {
+                if (onConfirmCallback) onConfirmCallback();
+                closeAlertModal();
+            };
+
+            document.getElementById('alertModal').classList.remove('hidden');
+        }
+
+        function closeAlertModal() {
+            document.getElementById('alertModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
