@@ -423,7 +423,9 @@ function doPost(e) {
     <script>
         // State Management
         let bookings = {};
-        let webAppUrl = localStorage.getItem('number_app_url') || '';
+        // Default Google Apps Script Web App URL fixed permanently
+        const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw8TbB3h5MFsliuFI6AAh2Y0Flpiw5PZsbCKKp-5gPzrtKtcXUSxYuTQNuqhi7_0BmAiA/exec';
+        let webAppUrl = localStorage.getItem('number_app_url') || DEFAULT_WEB_APP_URL;
         let winningState = {
             num1: '',
             num2: '',
@@ -433,12 +435,11 @@ function doPost(e) {
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
-            if (webAppUrl) {
-                document.getElementById('webAppUrl').value = webAppUrl;
-                updateConnectionStatus('saved', 'ตั้งค่า URL แล้ว');
-            }
+            // Set URL into input field
+            document.getElementById('webAppUrl').value = webAppUrl;
+            updateConnectionStatus('saved', 'ตั้งค่า URL ถาวรเรียบร้อยแล้ว');
             
-            // Load local backup if available
+            // Load local backup if available as fallback
             const savedLocal = localStorage.getItem('number_app_data');
             if (savedLocal) {
                 try {
@@ -451,6 +452,7 @@ function doPost(e) {
             renderGrid();
             updateStats();
 
+            // Automatically sync data from Google Sheets immediately on load
             if (webAppUrl) {
                 syncWithGoogleSheet();
             }
